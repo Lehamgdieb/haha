@@ -6,6 +6,10 @@ repeat task.wait() until game:IsLoaded()
 local HttpService = game:GetService('HttpService')
 local ReplicatedStorage = game:GetService('ReplicatedStorage')
 
+-- Bộ nhớ tạm lưu trạng thái cũ để chống spam API
+local lastPayload = ""
+local lastSentTime = 0
+
 -- Hàm tìm quái nhanh trong Workspace/Storage
 local findMob = function(mobName)
     return workspace.Enemies:FindFirstChild(mobName) or ReplicatedStorage:FindFirstChild(mobName)
@@ -63,7 +67,7 @@ local scanAndPostEvents = function()
     -- Danh sách Boss Elite
     local EliteList = {'Diablo', 'Urban', 'Deandre'}
     
-    -- Danh sách Boss Hiếm & Boss Farm mục tiêu (Đã thêm Darkbeard và dàn Boss Sea 3 chuẩn game)
+    -- Danh sách Boss Hiếm & Boss Farm mục tiêu
     local RareBossList = {
         'rip_indra True Form', 'Dough King', 'Cake Prince', 'Soul Reaper', 'Cursed Captain',
         'Darkbeard', 'Stone', 'Island Empress', 'Beautiful Pirate', 'Kilo Admiral', 'Captain Elephant'
@@ -101,14 +105,30 @@ local scanAndPostEvents = function()
         })
     end
 
-    -- Nếu phát hiện bất kỳ sự kiện nào thì tiến hành POST lên file handle_event.php
+    -- KIỂM TRA CHỐNG SPAM: Nếu có dữ liệu sự kiện
     if #bodyData > 0 then
-        request({
-            Url = "http://113.165.150.162:8000/api/handle_event.php", -- URL tới cổng 8080 cục bộ của bạn
-            Method = "POST",
-            Headers = { ["Content-Type"] = "application/json" },
-            Body = HttpService:JSONEncode(bodyData)
-        })
+        local currentPayload = HttpService:JSONEncode(bodyData)
+        local currentTime = os.time()
+        
+        -- Nếu dữ liệu mới giống hệt dữ liệu cũ VÀ chưa quá 3 phút (180 giây) -> Bỏ qua không gửi để nhẹ mạng
+        if currentPayload == lastPayload and (currentTime - lastSentTime) < 180 then
+            return
+        end
+        
+        -- Tiến hành gửi request lên máy chủ XAMPP của bạn qua IP tĩnh / Port 8000
+        local success, res = pcall(function()
+            return request({
+                Url = "http://113.165.150.162:8000/api/handle_event.php",
+                Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = currentPayload
+            })
+        end)
+        
+        if success then
+            lastPayload = currentPayload
+            lastSentTime = currentTime
+        end
     end
 end
 
@@ -119,8 +139,8 @@ task.spawn(function()
     
     while true do
         pcall(scanAndPostEvents)
-        task.wait(10) -- Tần suất cập nhật phòng chứa boss nhanh chóng
+        task.wait(10) -- Quét nhanh trạng thái server trong game, nhưng gửi thông minh hơn
     end
 end)
 
-print("[Blox Kid Event Monitor]: Hệ thống truyền tải sự kiện độc lập đã bật!")
+print("[Blox Kid Event Monitor]: Hệ thống truyền tải sự kiện độc lập thông minh đã hoạt động!")
