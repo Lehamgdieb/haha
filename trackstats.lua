@@ -1,11 +1,15 @@
 -- ====================================================================
--- SCRIPT: BloxKid_Tracker.lua (CHỈ CHẠY CHO ACC CLONE CỦA BẠN)
+-- SCRIPT: BloxKid_Tracker.lua (CHỈ CHẠY CHO ACC CLONE CỦA BẠN - FIX LỆCH GIỜ & SKULL GUITAR)
 -- ====================================================================
 repeat task.wait() until game:IsLoaded() and game.Players.LocalPlayer:FindFirstChild('DataLoaded')
 
 local HttpService = game:GetService('HttpService')
 local LocalPlayer = game:GetService('Players').LocalPlayer
 local CommF_ = game:GetService('ReplicatedStorage'):WaitForChild('Remotes'):WaitForChild('CommF_')
+
+-- Bộ nhớ đệm tránh spam dữ liệu trùng lặp lên máy chủ
+local lastStatsPayload = ""
+local lastPostedTime = 0
 
 -- Hàm kiểm tra trạng thái gạt cần Temple of Time
 function CheckPullLever() 
@@ -92,9 +96,9 @@ function GetStats()
 		['pull'] = CheckPullLever(),
 	}
 
-	-- Phân loại độ hiếm Kiếm và Trái cây trong túi đồ để đồng bộ với Web UI
+	-- ĐÃ SỬA CƠ CHẾ: Quét nhận diện thêm cả phân loại 'Gun' (Súng) để bắt dính Skull Guitar
 	for _, v in pairs(inventory) do
-		if v['Type'] == 'Sword' then
+		if v['Type'] == 'Sword' or v['Type'] == 'Gun' then
 			if v['Rarity'] == 4 then 
 				table.insert(jsonData['swords']['mythical'], v['Name'])
 			elseif v['Rarity'] == 3 then 
@@ -112,22 +116,36 @@ function GetStats()
 	return HttpService:JSONEncode(jsonData)
 end
 
--- VÒNG LẶP GỬI REQUEST LÊN SERVER XAMPP CỦA BẠN
+-- VÒNG LẶP GỬI REQUEST THÔNG MINH LÊN IP MẠNG CỦA BẠN
 task.spawn(function()
     while true do
         pcall(function()
             local payload = GetStats()
             if payload and payload ~= '' then
-                request({
-                    Url = "http://113.165.150.162:8000/api/save_stats.php", -- Giữ nguyên localhost nếu chạy cùng máy, hoặc thay bằng IP VPS của bạn
-                    Method = "POST",
-                    Headers = { ["Content-Type"] = "application/json" },
-                    Body = payload
-                })
+                local currentTime = os.time()
+                
+                -- KIỂM TRA BỘ LỌC CHỐNG SPAM: Nếu data không đổi VÀ chưa quá 3 phút -> Bỏ qua để nhẹ luồng truyền tải
+                if payload == lastStatsPayload and (currentTime - lastPostedTime) < 180 then
+                    return
+                end
+                
+                local success, res = pcall(function()
+                    return request({
+                        Url = "http://113.165.150.162:8000/api/save_stats.php", -- Chạy qua địa chỉ IP tĩnh & Cổng 8000 của bạn
+                        Method = "POST",
+                        Headers = { ["Content-Type"] = "application/json" },
+                        Body = payload
+                    })
+                end)
+                
+                if success then
+                    lastStatsPayload = payload
+                    lastSentTime = currentTime
+                end
             end
         end)
-        task.wait(20) -- 20 giây cập nhật thông số lên Dashboard một lần (vừa đủ để hiển thị "a few seconds ago")
+        task.wait(45) -- Kiểm tra biến động chỉ số mỗi 45 giây (Chu kỳ tối ưu cho treo dàn clone đường dài)
     end
 end)
 
-print("[Blox Kid Tracker]: Hệ thống giám sát đã được kích hoạt trên tài khoản này!")
+print("[Blox Kid Tracker VIP]: Hệ thống giám sát chỉ số tài khoản và vũ khí đã kích hoạt thành công!")
