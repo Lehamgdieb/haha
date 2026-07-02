@@ -105,7 +105,7 @@ task.spawn(function()
         }
         local success, res = pcall(function()
             return request({
-                Url = "http://113.165.150.162:8000/api/save_stats.php",
+                Url = "http://14.233.28.141:8000/api/save_stats.php",
                 Method = "POST",
                 Headers = { ["Content-Type"] = "application/json" },
                 Body = HttpService:JSONEncode(basicData)
