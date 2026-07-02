@@ -1,10 +1,21 @@
 -- ====================================================================
--- SCRIPT: BloxKid_Tracker.lua (CHỈ CHẠY CHO ACC CLONE CỦA BẠN - FULL OPTIMIZED)
+-- SCRIPT: BloxKid_Tracker.lua (BẢN FIX CHUYÊN DỤNG CHO AUTOEXEC)
 -- ====================================================================
-repeat task.wait() until game:IsLoaded() and game.Players.LocalPlayer:FindFirstChild('DataLoaded')
+
+-- 1. CHỜ GAME TẢI XONG HOÀN TOÀN TRƯỚC KHI CHẠY (CHỐNG CRASH AUTOEXEC)
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
+local LocalPlayer = game:GetService('Players').LocalPlayer
+repeat task.wait(1) until LocalPlayer and LocalPlayer:FindFirstChild('DataLoaded')
+
+-- Chờ thêm một chút để chắc chắn ví tiền và dữ liệu chủng tộc đã được nạp vào nhân vật
+repeat task.wait(1) until LocalPlayer:FindFirstChild('Data') 
+    and LocalPlayer.Data:FindFirstChild('Beli') 
+    and LocalPlayer.Data:FindFirstChild('Race')
 
 local HttpService = game:GetService('HttpService')
-local LocalPlayer = game:GetService('Players').LocalPlayer
 local CommF_ = game:GetService('ReplicatedStorage'):WaitForChild('Remotes'):WaitForChild('CommF_')
 
 -- Bộ nhớ đệm lưu trạng thái cũ để chống spam API khi tài khoản đứng im farm
@@ -96,7 +107,7 @@ function GetStats()
         ['pull'] = CheckPullLever(),
     }
 
-    -- PHẦN ĐÃ SỬA: Quét gom cả loại 'Sword' và 'Gun' (Súng) để đưa Skull Guitar vào Web xử lý nhãn màu
+    -- Quét cả Sword và Gun để lấy súng Skull Guitar lên web
     for _, v in pairs(inventory) do
         if v['Type'] == 'Sword' or v['Type'] == 'Gun' then
             if v['Rarity'] == 4 then 
@@ -118,7 +129,7 @@ end
 
 -- TIẾN TRÌNH TRUYỀN TẢI DATA THỜI GIAN THỰC
 task.spawn(function()
-    -- [BƯỚC 1]: GỬI NGAY LẬP TỨC 1 GÓI DATA KHI VỪA VÀO GAME (CHỐNG HỤT TRACK KHI HOP SERVER NHANH)
+    -- Bắn ngay phát đầu tiên khi vừa đủ điều kiện load xong dữ liệu nhân vật
     pcall(function()
         local firstPayload = GetStats()
         if firstPayload and firstPayload ~= '' then
@@ -130,11 +141,11 @@ task.spawn(function()
             })
             lastStatsPayload = firstPayload
             lastPostedTime = os.time()
-            print("[Blox Kid Tracker]: Đã đồng bộ dữ liệu khởi tạo thành công (First Post)!")
+            print("[Blox Kid Tracker]: Autoexec đã kích hoạt phát bắn dữ liệu đầu tiên thành công!")
         end
     end)
 
-    -- [BƯỚC 2]: ĐI VÀO VÒNG LẶP THEO DÕI ĐƯỜNG DÀI (30 GIÂY KIỂM TRA BIẾN ĐỘNG 1 LẦN)
+    -- Chu kỳ lặp lại theo dõi biến động chỉ số
     while true do
         task.wait(30)
         pcall(function()
@@ -142,12 +153,11 @@ task.spawn(function()
             if payload and payload ~= '' then
                 local currentTime = os.time()
                 
-                -- Cơ chế chống spam: Nếu data không thay đổi VÀ chưa quá 3 phút (180s) -> Bỏ qua không gửi để nhẹ băng thông
+                -- Chống trùng lặp dữ liệu đứng im khi farm
                 if payload == lastStatsPayload and (currentTime - lastPostedTime) < 180 then
                     return
                 end
                 
-                -- Thực hiện gửi cập nhật khi phát hiện có biến động chỉ số (Lên cấp, thêm tiền, thêm đồ...)
                 local success, res = pcall(function()
                     return request({
                         Url = "http://113.165.150.162:8000/api/save_stats.php",
@@ -166,4 +176,4 @@ task.spawn(function()
     end
 end)
 
-print("[Blox Kid Tracker VIP]: Hệ thống giám sát thời gian thực siêu tốc đã kích hoạt thành công!")
+print("[Blox Kid Tracker VIP]: Đã nạp thành công bộ lọc an toàn cho Autoexec!")
