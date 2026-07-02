@@ -1,8 +1,72 @@
 -- ====================================================================
--- SCRIPT: BloxKid_Tracker.lua (BẢN ĐẶC TRỊ LỖI TREO NGẦM AUTOEXEC)
+-- SCRIPT: BloxKid_Tracker.lua (BẢN TÍCH HỢP UI MINIMAL TOP-CENTER)
 -- ====================================================================
 
--- 1. Chờ game tải xong phần cứng
+-- 1. TẠO GIAO DIỆN UI ĐƠN GIẢN Ở GIỮA TRÊN CÙNG MÀN HÌNH
+local CoreGui = game:GetService("CoreGui")
+local oldUi = CoreGui:FindFirstChild("BloxKidTrackerUI")
+if oldUi then oldUi:Destroy() end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BloxKidTrackerUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = CoreGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 240, 0, 26)
+MainFrame.Position = UDim2.new(0.5, -120, 0, 5) -- Căn giữa (0.5) và dịch lên sát mép trên (5px)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 6)
+UICorner.Parent = MainFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(35, 35, 45)
+UIStroke.Thickness = 1
+UIStroke.Parent = MainFrame
+
+local StatusDot = Instance.new("Frame")
+StatusDot.Name = "StatusDot"
+StatusDot.Size = UDim2.new(0, 8, 0, 8)
+StatusDot.Position = UDim2.new(0, 12, 0.5, -4)
+StatusDot.BackgroundColor3 = Color3.fromRGB(239, 68, 68) -- Mặc định màu đỏ (Chưa kết nối)
+StatusDot.BorderSizePixel = 0
+StatusDot.Parent = MainFrame
+
+local DotCorner = Instance.new("UICorner")
+DotCorner.CornerRadius = UDim.new(1, 0)
+DotCorner.Parent = StatusDot
+
+local StatusLabel = Instance.new("TextLabel")
+StatusLabel.Name = "StatusLabel"
+StatusLabel.Size = UDim2.new(1, -30, 1, 0)
+StatusLabel.Position = UDim2.new(0, 26, 0, 0)
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.TextColor3 = Color3.fromRGB(150, 160, 175)
+StatusLabel.TextSize = 12
+StatusLabel.Font = Enum.Font.GothamBold
+StatusLabel.TextXAlignment = Enum.TextXAlignment.Left
+StatusLabel.Text = "TRACKER: CONNECTING..."
+StatusLabel.Parent = MainFrame
+
+-- Hàm cập nhật trạng thái UI nhanh
+local function updateUI(status, isSuccess)
+    if isSuccess then
+        StatusDot.BackgroundColor3 = Color3.fromRGB(16, 185, 129) -- Xanh lá khi OK
+        StatusLabel.Text = "TRACKER: " .. tostring(status)
+        StatusLabel.TextColor3 = Color3.fromRGB(240, 240, 245)
+    else
+        StatusDot.BackgroundColor3 = Color3.fromRGB(239, 68, 68) -- Đỏ khi lỗi/chờ
+        StatusLabel.Text = "TRACKER: " .. tostring(status)
+        StatusLabel.TextColor3 = Color3.fromRGB(180, 100, 100)
+    end
+end
+
+-- 2. TIẾN TRÌNH KHỞI CHẠY KHÓA AN TOÀN CHO AUTOEXEC
 if not game:IsLoaded() then
     game.Loaded:Wait()
 end
@@ -16,7 +80,6 @@ local CommF_ = game:GetService('ReplicatedStorage'):WaitForChild('Remotes'):Wait
 local lastStatsPayload = ""
 local lastPostedTime = 0
 
--- Hàm xác định Sea an toàn bằng PlaceId (Không gọi Server)
 function GetSea()
     local pId = game.PlaceId
     if pId == 85211729168715 or pId == 2753915549 then return 1
@@ -25,7 +88,7 @@ function GetSea()
     return 1
 end
 
--- LUỒNG 1: BẮN DATA CƠ BẢN LẬP TỨC (Không dùng InvokeServer - Giúp Web hiện ONLINE ngay khi vào game)
+-- LUỒNG 1: BẮN DATA CƠ BẢN LẬP TỨC (Không dùng InvokeServer để sáng đèn web ngay)
 task.spawn(function()
     pcall(function()
         local basicData = {
@@ -40,20 +103,25 @@ task.spawn(function()
             ['df_mastery'] = 0, ['gear'] = 0, ['pull'] = false,
             ['melees'] = {}, ['swords'] = {['mythical']={},['legendary']={}}, ['fruits'] = {['mythical']={},['legendary']={}}
         }
-        request({
-            Url = "http://14.233.28.141:8000/api/save_stats.php",
-            Method = "POST",
-            Headers = { ["Content-Type"] = "application/json" },
-            Body = HttpService:JSONEncode(basicData)
-        })
-        print("[Blox Kid Autoexec]: Đã kích hoạt Online siêu tốc!")
+        local success, res = pcall(function()
+            return request({
+                Url = "http://113.165.150.162:8000/api/save_stats.php",
+                Method = "POST",
+                Headers = { ["Content-Type"] = "application/json" },
+                Body = HttpService:JSONEncode(basicData)
+            })
+        end)
+        if success then
+            updateUI("ONLINE (BASIC OK)", true)
+        else
+            updateUI("HTTP ERR", false)
+        end
     end)
 end)
 
 -- HOÃN CHẠY CÁC HÀM NẶNG ĐỂ TRÁNH LỖI PHẢN HỒI TỪ GAME
 task.wait(15) 
 
--- [Tái cấu trúc các hàm check có dùng InvokeServer với pcall bảo vệ]
 function CheckPullLever() 
     local success, res = pcall(function() return CommF_:InvokeServer('CheckTempleDoor') end)
     return success and res or false
@@ -127,7 +195,7 @@ function GetStats()
     return HttpService:JSONEncode(jsonData)
 end
 
--- LUỒNG 2: VÒNG LẶP ĐỒNG BỘ ĐẦY ĐỦ THÔNG SỐ SAU KHI GAME ĐÃ ỔN ĐỊNH
+-- LUỒNG 2: VÒNG LẶP ĐỒNG BỘ ĐẦY ĐỦ THÔNG SỐ (30S/LẦN)
 task.spawn(function()
     while true do
         pcall(function()
@@ -136,12 +204,13 @@ task.spawn(function()
                 local currentTime = os.time()
                 
                 if payload == lastStatsPayload and (currentTime - lastPostedTime) < 180 then
+                    updateUI("CONNECTED (IDLE)", true)
                     return
                 end
                 
                 local success, res = pcall(function()
                     return request({
-                        Url = "http://113.165.150.162:8000/api/save_stats.php",
+                        Url = "http://14.233.28.141:8000/api/save_stats.php",
                         Method = "POST",
                         Headers = { ["Content-Type"] = "application/json" },
                         Body = payload
@@ -151,6 +220,9 @@ task.spawn(function()
                 if success then
                     lastStatsPayload = payload
                     lastPostedTime = currentTime
+                    updateUI("CONNECTED (UPDATED)", true)
+                else
+                    updateUI("HTTP REQ ERR", false)
                 end
             end
         end)
@@ -158,4 +230,4 @@ task.spawn(function()
     end
 end)
 
-print("[Blox Kid Tracker VIP]: Đã khắc phục triệt để lỗi nghẽn hụt luồng Autoexec!")
+print("[Blox Kid Tracker VIP]: Đã nhúng UI giám sát ngầm đỉnh cao!")
