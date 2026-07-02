@@ -131,7 +131,7 @@ task.spawn(function()
                 
                 local success, res = pcall(function()
                     return request({
-                        Url = "http://113.165.150.162:8000/api/save_stats.php", -- Chạy qua địa chỉ IP tĩnh & Cổng 8000 của bạn
+                        Url = "http://14.233.28.141:8000/api/save_stats.php", -- Chạy qua địa chỉ IP tĩnh & Cổng 8000 của bạn
                         Method = "POST",
                         Headers = { ["Content-Type"] = "application/json" },
                         Body = payload
