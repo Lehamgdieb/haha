@@ -1,17 +1,23 @@
 -- =====================================================================
--- FILE 1: KAITUN & FARM MODULES (TÍCH HỢP AUTO KICK KHI HOÀN THÀNH MÓN ĐỒ)
+-- FILE 1: KAITUN & FARM MODULES (ĐÃ FIX LỖI NIL VALUE KHI LOAD GAME LAG)
 -- =====================================================================
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local plr = Players.LocalPlayer
+
+-- Đợi dữ liệu nhân vật sẵn sàng hoàn toàn để tránh lỗi nil
+if plr then
+    repeat task.wait(0.5) until plr:FindFirstChild("Data") and plr.Data:FindFirstChild("Level")
+end
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService('HttpService')
 
 -- URL lấy Key hệ thống Night Hub
 local KeyUrl = "http://14.233.28.141:8000/api.php" 
 
--- Hàm quét nhanh vật phẩm trong người và hòm đồ ẩn
+-- Hàm quét nhanh vật phẩm trong người và hòm đồ ẩn (Đã sửa lỗi chống nil)
 local function hasItem(itemName)
     if not plr then return false end
     local inventory = plr:FindFirstChild("Backpack") 
@@ -21,12 +27,17 @@ local function hasItem(itemName)
     if inventory and inventory:FindFirstChild(itemName) then return true end
     if character and character:FindFirstChild(itemName) then return true end
     
-    local success, invTable = pcall(function() 
-        return inventoryData:InvokeServer("getInventory") 
-    end)
-    if success and type(invTable) == "table" then
-        for _, item in pairs(invTable) do
-            if item.Name == itemName then return true end
+    if inventoryData then
+        local success, invTable = pcall(function() 
+            return inventoryData:InvokeServer("getInventory") 
+        end)
+        -- Kiểm tra chắc chắn invTable là table mới xử lý vòng lặp
+        if success and type(invTable) == "table" and invTable ~= nil then
+            for _, item in pairs(invTable) do
+                if type(item) == "table" and item.Name == itemName then 
+                    return true 
+                end
+            end
         end
     end
     return false
@@ -90,10 +101,10 @@ local function CheckItemsAndGetScriptRoute()
                 print("[Hệ Thống] Đã ghi file đa tab: " .. fileName)
             end
             
-            -- KÍCH HOẠT LUỒNG GIÁM SÁT ĐỂ KICK KHI NHẶT ĐƯỢC ĐỒ (Tránh đứng im sau khi hoàn thành)
+            -- KÍCH HOẠT LUỒNG GIÁM SÁT ĐỂ KICK KHI NHẶT ĐƯỢC ĐỒ
             task.spawn(function()
                 print("[Hệ Thống] Đang kích hoạt luồng giám sát hoàn thành mục tiêu...")
-                while task.wait(5) do -- Kiểm tra mỗi 5 giây
+                while task.wait(5) do
                     if not hasTushita and hasItem("Tushita") then
                         plr:Kick("🎉 [NightHub] ĐÃ LẤY THÀNH CÔNG TUSHITA! Đang Rejoin để chuyển cấu hình...")
                         break
