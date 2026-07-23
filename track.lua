@@ -104,7 +104,7 @@ local scanAndPostEvents = function()
     -- Nếu phát hiện bất kỳ sự kiện nào thì tiến hành POST lên file handle_event.php
     if #bodyData > 0 then
         request({
-            Url = "http://113.165.150.162:8000/api/handle_event.php", -- URL tới cổng 8080 cục bộ của bạn
+            Url = "http://14.174.150.234:8000/api/handle_event.php", -- URL tới cổng 8080 cục bộ của bạn
             Method = "POST",
             Headers = { ["Content-Type"] = "application/json" },
             Body = HttpService:JSONEncode(bodyData)
